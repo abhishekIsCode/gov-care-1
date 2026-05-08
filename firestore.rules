@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Doctor Validation
+    function isValidDoctor(data) {
+      return data.keys().hasAll(['name', 'specialty', 'email']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.specialty is string && data.specialty.size() > 0 &&
+             data.email is string;
+    }
+
+    // Patient Validation
+    function isValidPatient(data) {
+      return data.keys().hasAll(['healthId', 'name', 'age', 'gender', 'doctorId', 'enrolledAt']) &&
+             data.healthId is string && data.healthId.size() > 0 &&
+             data.name is string && data.name.size() > 0 &&
+             data.age is int &&
+             data.gender in ['Male', 'Female', 'Other'] &&
+             data.doctorId is string &&
+             data.enrolledAt is string;
+    }
+
+    // Doctors Collection
+    match /doctors/{doctorId} {
+      allow read: if true; // Publicly readable for enrollment assignments
+      allow create, update: if isValidDoctor(request.resource.data);
+      allow delete: if false; // Security: Doctors cannot be deleted via client
+    }
+
+    // Patients Collection
+    match /patients/{patientId} {
+      allow read: if true; // For dashboard view
+      allow create: if isValidPatient(request.resource.data);
+      allow update: if isValidPatient(request.resource.data) && 
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'age', 'gender', 'doctorId']));
+      allow delete: if false;
+    }
+  }
+}

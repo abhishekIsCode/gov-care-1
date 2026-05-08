@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Doctor": {
+      "title": "Doctor",
+      "description": "Information about a doctor in the system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      },
+      "required": ["id", "name", "specialty"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient enrollment and admission data.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "healthId": { "type": "string", "description": "Extracted Health ID" },
+        "name": { "type": "string" },
+        "age": { "type": "integer" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "medicalHistory": { "type": "string", "description": "Concise medical history" },
+        "requestedTreatment": { "type": "string", "description": "Reason for visit/treatment requested" },
+        "doctorId": { "type": "string", "description": "Assigned doctor ID" },
+        "status": { "type": "string", "enum": ["Pending", "Admitted", "Discharged"] },
+        "enrolledAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "healthId", "name", "doctorId", "enrolledAt", "status"]
+    }
+  },
+  "firestore": {
+    "/doctors/{doctorId}": {
+      "schema": "Doctor",
+      "description": "Collection of doctors."
+    },
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Collection of enrolled patients."
+    }
+  }
+}

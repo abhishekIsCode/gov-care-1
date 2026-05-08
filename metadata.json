@@ -1,0 +1,8 @@
+{
+  "name": "HealthShield Dashboard",
+  "description": "An AI-powered patient enrollment and dashboard system for hospital administrators, featuring vision-based Health ID extraction.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
