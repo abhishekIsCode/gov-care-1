@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import React, { useRef, useState } from 'react';
+import { Scanner, IDetectedBarcode } from '@yudiel/react-qr-scanner';
 import { Camera, RefreshCw, X, Sparkles, Scan, Zap } from 'lucide-react';
 import { extractHealthIdFromImage } from '../services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,71 +12,18 @@ interface AIVisionScannerProps {
 export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScannerProps) {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isScannerStarted, setIsScannerStarted] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const containerId = "qr-reader";
-    let scanner: Html5Qrcode | null = null;
-
-    const startScanner = async () => {
-      // Small delay to ensure DOM stability
-      await new Promise(resolve => setTimeout(resolve, 100));
-      if (!isMounted) return;
-
-      try {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        scanner = new Html5Qrcode(containerId);
-        html5QrCodeRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-          },
-          (decodedText) => {
-            if (isMounted) {
-              onIdScanned(decodedText);
-            }
-          },
-          () => { /* Search failures are normal */ }
-        );
-        
-        if (isMounted) {
-          setIsScannerStarted(true);
-        } else {
-          scanner.stop().catch(() => {});
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Scanner init failure:", err);
-          setError("Camera logic failed to initialize.");
-        }
-      }
-    };
-
-    startScanner();
-
-    return () => {
-      isMounted = false;
-      if (scanner) {
-        if (scanner.isScanning) {
-          scanner.stop().catch(() => {});
-        }
-      }
-      html5QrCodeRef.current = null;
-    };
-  }, [onIdScanned]);
+  const handleScan = (detectedCodes: IDetectedBarcode[]) => {
+    if (detectedCodes && detectedCodes.length > 0 && !hasScanned) {
+      setHasScanned(true);
+      onIdScanned(detectedCodes[0].rawValue);
+    }
+  };
 
   const captureFrameAndAnalyze = async () => {
-    const video = document.querySelector('#qr-reader video') as HTMLVideoElement;
+    const video = document.querySelector('video') as HTMLVideoElement;
     if (!video) return;
 
     setIsAiLoading(true);
@@ -94,22 +41,19 @@ export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScanne
       
       const result = await extractHealthIdFromImage(base64);
       
-      if (html5QrCodeRef.current) {
-        if (result) {
+      if (!hasScanned) {
+        if (result && result !== "NULL" && result !== "null") {
+          setHasScanned(true);
           onIdScanned(result);
         } else {
           setError("AI could not extract ID from frame. Try holding the card steadier.");
         }
       }
     } catch (err) {
-      if (html5QrCodeRef.current) {
-        console.error("Capture failure:", err);
-        setError("Frame capture failed.");
-      }
+      console.error("Capture failure:", err);
+      setError("Frame capture failed.");
     } finally {
-      if (html5QrCodeRef.current) {
-        setIsAiLoading(false);
-      }
+      setIsAiLoading(false);
     }
   };
 
@@ -126,12 +70,15 @@ export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScanne
         const base64 = (reader.result as string).split(',')[1];
         const result = await extractHealthIdFromImage(base64);
         
-        if (result) {
-          onIdScanned(result);
-        } else {
-          setError("No ID found in photo.");
-          setIsAiLoading(false);
+        if (!hasScanned) {
+          if (result && result !== "NULL" && result !== "null") {
+            setHasScanned(true);
+            onIdScanned(result);
+          } else {
+            setError("No ID found in photo.");
+          }
         }
+        setIsAiLoading(false);
       };
       reader.readAsDataURL(file);
     } catch (err) {
@@ -164,17 +111,24 @@ export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScanne
 
         <div className="p-10 space-y-10">
           <div className="relative group">
-            <div id="qr-reader" className="overflow-hidden border-4 border-black brutalist-shadow-sm bg-black aspect-square relative">
-              {!isScannerStarted && !error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-[#cbcbb5] gap-4">
-                  <RefreshCw className="animate-spin" size={32} />
-                  <span className="font-mono text-[10px] uppercase tracking-widest font-bold">Initializing Optics...</span>
-                </div>
-              )}
+            <div className="overflow-hidden border-4 border-black brutalist-shadow-sm bg-black relative">
+              <Scanner
+                onScan={handleScan}
+                onError={(e) => {
+                  console.error("Scanner Error:", e);
+                }}
+                components={{
+                  finder: false,
+                }}
+                styles={{
+                  container: { width: '100%', aspectRatio: '1/1', objectFit: 'cover' },
+                  video: { objectFit: 'cover' }
+                }}
+              />
             </div>
             
             {/* Viewfinder Overlays */}
-            <div className="absolute inset-x-8 inset-y-8 pointer-events-none">
+            <div className="absolute inset-x-8 inset-y-8 pointer-events-none z-10">
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#ff4d00]" />
               <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#ff4d00]" />
               <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#ff4d00]" />
@@ -185,7 +139,7 @@ export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScanne
           <div className="grid grid-cols-2 gap-6">
             <button
               onClick={captureFrameAndAnalyze}
-              disabled={isAiLoading || !isScannerStarted}
+              disabled={isAiLoading || hasScanned}
               className="flex items-center justify-center gap-3 py-5 bg-black text-white font-mono font-bold tracking-[0.2em] hover:bg-zinc-800 transition-all brutalist-shadow disabled:opacity-50 text-[10px] uppercase"
             >
               {isAiLoading ? (
@@ -200,7 +154,7 @@ export default function AIVisionScanner({ onIdScanned, onClose }: AIVisionScanne
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isAiLoading}
+              disabled={isAiLoading || hasScanned}
               className="flex items-center justify-center gap-3 py-5 bg-white border-2 border-black text-black font-mono font-bold tracking-[0.2em] hover:bg-[#f2f2ee] transition-all brutalist-shadow-sm disabled:opacity-50 text-[10px] uppercase"
             >
               <Sparkles size={18} />

@@ -15,10 +15,11 @@ export async function extractHealthIdFromImage(base64Image: string): Promise<str
             },
           },
           {
-            text: `Extract the patient's Health ID or National Health ID from this image of a QR code or ID card. 
-            The ID is usually a unique numeric or alphanumeric string (e.g., 91-1234-5678-9012 or similar).
-            If you see multiple IDs, prioritize the one clearly labeled as Health ID or from a Government Health ID card.
-            Return ONLY the extracted ID string. If no ID is found, return "NULL".`,
+            text: `Extract the text encoded in the QR code or ID card in the image. 
+            If you see a QR code containing JSON or text, return the exact raw text or JSON string it contains. 
+            If it's an ID card or medical document, extract the details and return it as a JSON object with keys: "healthId", "name", "age", "gender", "medicalHistory", "requestedTreatment". 
+            (Create the healthId, age, gender, medicalHistory, and requestedTreatment if they are available on the document, e.g. "91-1234-5678-9012").
+            Return ONLY the extracted string or JSON. Try not to wrap it in markdown block quotes. If no ID or QR code text is found, return "NULL".`,
           },
         ],
       },

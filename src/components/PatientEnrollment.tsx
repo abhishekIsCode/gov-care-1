@@ -35,6 +35,176 @@ export default function PatientEnrollment({ scannedId, onCancel, onSuccess }: Pa
 
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpError, setOtpError] = useState(false);
+  const [actualScannedId, setActualScannedId] = useState(scannedId);
+
+  // Mock database for simple QR numbers
+  const MOCK_PATIENT_DATABASE: Record<string, any> = {
+    "HID-12345": {
+      name: "Abhishek Sharma",
+      age: "24",
+      gender: "Male",
+      medicalHistory: "Patient has no history of chronic, severe illnesses. Exhibits mild seasonal allergic rhinitis, specifically sensitive to spring pollen, resulting in nasal congestion, sneezing, and ocular pruritus. No history of asthma, diabetes, or hypertension. Previous surgical history is nil. Current medications: over-the-counter antihistamines as needed during spring.",
+      requestedTreatment: "Comprehensive annual wellness examination. Patient is requesting a consultation regarding an updated allergy management plan, including potential testing for specific respiratory allergens and prescription-strength antihistamine or nasal corticosteroid recommendations."
+    },
+    "12345": {
+      name: "Abhishek Sharma",
+      age: "24",
+      gender: "Male",
+      medicalHistory: "Patient has no history of chronic, severe illnesses. Exhibits mild seasonal allergic rhinitis, specifically sensitive to spring pollen, resulting in nasal congestion, sneezing, and ocular pruritus. No history of asthma, diabetes, or hypertension. Previous surgical history is nil. Current medications: over-the-counter antihistamines as needed during spring.",
+      requestedTreatment: "Comprehensive annual wellness examination. Patient is requesting a consultation regarding an updated allergy management plan, including potential testing for specific respiratory allergens and prescription-strength antihistamine or nasal corticosteroid recommendations."
+    },
+    "91123456789012": {
+      name: "Rajesh Kumar",
+      age: "45",
+      gender: "Male",
+      medicalHistory: "Diagnosed with Type 2 Diabetes Mellitus in 2020. Essential hypertension diagnosed in 2021. Patient experienced a left radial fracture in 2018, treated with open reduction and internal fixation (ORIF), fully healed with no residual deficit. Family history significant for cardiovascular disease (father). Current medications: Metformin 500mg BID, Amlodipine 5mg QD.",
+      requestedTreatment: "Quarterly follow-up for glycemic control and adjustment of diabetic medication based on recent HbA1c results. Routine blood pressure check and cardiovascular risk assessment."
+    },
+    "98765": {
+      name: "Aisha Khan",
+      age: "29",
+      gender: "Female",
+      medicalHistory: "Diagnosed with bronchial asthma in childhood, currently categorized as mild persistent. Has a history of an uncomplicated appendectomy in 2015. No known drug allergies. Family history includes maternal hypothyroidism. Current medications: Albuterol sulfate inhaler (PRN), Fluticasone propionate (daily).",
+      requestedTreatment: "Patient reports recent episodes of shortness of breath and wheezing, particularly during exercise. Requesting a pulmonary review, potential spirometry testing, and a medication refill for rescue inhaler."
+    },
+    "HID-67890": {
+      name: "Meera Reddy",
+      age: "52",
+      gender: "Female",
+      medicalHistory: "Bilateral knee osteoarthritis, diagnosed 5 years ago, progressively worsening. Essential hypertension well-controlled for 10 years. Borderline hyperlipidemia managed through diet. Previous surgeries: Cholecystectomy (2012). Current medications: Lisinopril 10mg QD, Ibuprofen 400mg PRN for joint pain, Glucosamine Chondroitin supplements.",
+      requestedTreatment: "Detailed orthopedic consultation for intractable knee pain. Seeking evaluation for potential intra-articular corticosteroid injections or consideration for physical therapy referrals, alongside medication management review."
+    },
+    "HID-VJ221": {
+      name: "Vikram Joshi",
+      age: "36",
+      gender: "Male",
+      medicalHistory: "Generally healthy male with no known chronic medical conditions such as diabetes, hypertension, or cardiac issues. Underwent bilateral LASIK refractive eye surgery in 2019 without complications. Reports occasional work-related stress and subsequent tension headaches. No historical surgeries other than LASIK. Non-smoker.",
+      requestedTreatment: "Comprehensive executive health evaluation including standard laboratory panels (CBC, CMP, Lipid panel). Requesting an updated vision screening post-LASIK and a brief consultation on ergonomic practices and stress-related tension headache management."
+    },
+    "HID-SC1984": {
+      name: "Sarah Chen",
+      age: "42",
+      gender: "Female",
+      medicalHistory: "Chronic migraine with aura, onset in early 20s, averaging 2-3 episodes per month. History of diet-controlled gestational diabetes mellitus (GDM) during pregnancy in 2014, resolved post-partum. No history of seizures or other neurological conditions. Current medications: Sumatriptan 50mg PRN at onset of migraine, Daily multivitamin.",
+      requestedTreatment: "Specialist neurology consultation regarding an observed increase in the frequency and intensity of migraine episodes over the last two months. Patient is seeking an evaluation for prophylactic medication options and to rule out secondary causes of headaches."
+    },
+    "HID-MK808": {
+      name: "Marcus King",
+      age: "61",
+      gender: "Male",
+      medicalHistory: "History of coronary artery disease, stable angina, and hypercholesterolemia. Underwent angioplasty with stent placement in 2020. Current medications include Atorvastatin 40mg, Aspirin 81mg, and Metoprolol 50mg. No known drug allergies.",
+      requestedTreatment: "Routine cardiology follow-up, EKG, and medication adjustment."
+    },
+    "HID-LP942": {
+      name: "Laura Palmer",
+      age: "27",
+      gender: "Female",
+      medicalHistory: "Asthma diagnosed at age 6, well-controlled with inhaled corticosteroids. History of eczema and mild iron-deficiency anemia. Appendectomy at age 12. Current medications: Symbicort inhaler, Ferrous sulfate supplements.",
+      requestedTreatment: "General wellness check, complete blood count (CBC) to monitor anemia, and asthma action plan review."
+    },
+    "HID-RV001": {
+      name: "Ravi Verma",
+      age: "48",
+      gender: "Male",
+      medicalHistory: "Type 2 Diabetes Mellitus diagnosed 5 years ago, moderately controlled. Presents with peripheral neuropathy in lower extremities. Former smoker (quit 10 years ago). Current medications: Metformin 1000mg, Gabapentin 300mg.",
+      requestedTreatment: "Endocrinology consultation for diabetes management and podiatry referral for peripheral neuropathy symptoms."
+    },
+    "HID-NK334": {
+      name: "Naomi Kim",
+      age: "35",
+      gender: "Female",
+      medicalHistory: "History of polycystic ovary syndrome (PCOS) and hypothyroidism. Currently trying to conceive. Current medications: Levothyroxine 75mcg, Prenatal vitamins.",
+      requestedTreatment: "Obstetrics/Gynecology appointment for preconception counseling, thyroid panel, and ultrasound."
+    }
+  };
+
+  useEffect(() => {
+    try {
+      let textToParse = scannedId.trim();
+      if (textToParse.includes('```json')) {
+        textToParse = textToParse.replace(/```json/g, '').replace(/```/g, '').trim();
+      } else if (textToParse.includes('```')) {
+        textToParse = textToParse.replace(/```/g, '').trim();
+      }
+      
+      const firstBrace = textToParse.indexOf('{');
+      const lastBrace = textToParse.lastIndexOf('}');
+      const isLikelyJson = firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace;
+      
+      if (isLikelyJson) {
+        try {
+          const jsonString = textToParse.substring(firstBrace, lastBrace + 1);
+          const data = JSON.parse(jsonString);
+          if (data.healthId) setActualScannedId(data.healthId);
+          else if (data.id) setActualScannedId(data.id);
+          
+          setFormData(prev => {
+            let calculatedAge = prev.age;
+            if (data.age) {
+              calculatedAge = data.age.toString();
+            } else if (data.dob) {
+              const birthYear = new Date(data.dob).getFullYear();
+              if (birthYear && !isNaN(birthYear)) {
+                calculatedAge = (new Date().getFullYear() - birthYear).toString();
+              }
+            }
+            
+            // Normalize gender to match options ("Male", "Female", "Other")
+            let normalizedGender = data.gender || data.sex || prev.gender;
+            if (normalizedGender && typeof normalizedGender === 'string') {
+               const l = normalizedGender.toLowerCase();
+               if (l === 'male') normalizedGender = 'Male';
+               else if (l === 'female') normalizedGender = 'Female';
+               else if (l === 'other') normalizedGender = 'Other';
+            }
+            
+            return {
+              ...prev,
+              name: data.name || data.patientName || prev.name,
+              age: calculatedAge,
+              gender: normalizedGender as any,
+              medicalHistory: data.medicalHistory || data.history || data.chronologicalHistory || prev.medicalHistory,
+              requestedTreatment: data.requestedTreatment || data.treatment || data.treatmentVector || prev.requestedTreatment,
+            };
+          });
+        } catch (err) {
+           console.error("JSON Parse failed for scannedId:", err);
+           setActualScannedId(textToParse);
+        }
+      } else {
+        // Not JSON - check if it matches our mock database
+        const lookupIdNumeric = textToParse.replace(/[^0-9]/g, ''); // Extract only numbers
+        const lookupIdAlphaNumeric = textToParse.replace(/[^a-zA-Z0-9\-]/g, ''); 
+        
+        let dbMatch = null;
+        let matchedId = textToParse;
+
+        if (MOCK_PATIENT_DATABASE[lookupIdAlphaNumeric]) {
+          dbMatch = MOCK_PATIENT_DATABASE[lookupIdAlphaNumeric];
+          matchedId = lookupIdAlphaNumeric;
+        } else if (MOCK_PATIENT_DATABASE[lookupIdNumeric]) {
+           dbMatch = MOCK_PATIENT_DATABASE[lookupIdNumeric];
+           matchedId = lookupIdNumeric;
+        }
+
+        if (dbMatch) {
+          setActualScannedId(matchedId);
+          setFormData(prev => ({
+            ...prev,
+            name: dbMatch.name,
+            age: dbMatch.age,
+            gender: dbMatch.gender,
+            medicalHistory: dbMatch.medicalHistory,
+            requestedTreatment: dbMatch.requestedTreatment,
+          }));
+        } else {
+          setActualScannedId(textToParse);
+        }
+      }
+    } catch(e) {
+      setActualScannedId(scannedId);
+    }
+  }, [scannedId]);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -92,7 +262,7 @@ export default function PatientEnrollment({ scannedId, onCancel, onSuccess }: Pa
       setIsSubmitting(true);
       try {
         await addDoc(collection(db, 'patients'), {
-          healthId: scannedId,
+          healthId: actualScannedId,
           name: formData.name,
           age: parseInt(formData.age),
           gender: formData.gender,
@@ -139,7 +309,7 @@ export default function PatientEnrollment({ scannedId, onCancel, onSuccess }: Pa
               </button>
               <div>
                 <h1 className="text-4xl font-serif italic font-bold text-zinc-900 tracking-tight leading-none">Admission Log</h1>
-                <p className="font-mono text-[10px] font-bold text-[#88887e] mt-2 tracking-[0.2em]">IDENTITY: <span className="text-black">{scannedId}</span></p>
+                <p className="font-mono text-[10px] font-bold text-[#88887e] mt-2 tracking-[0.2em]">IDENTITY: <span className="text-black">{actualScannedId}</span></p>
               </div>
             </div>
 

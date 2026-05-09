@@ -28,7 +28,7 @@ service cloud.firestore {
       return data.keys().hasAll(['healthId', 'name', 'age', 'gender', 'doctorId', 'enrolledAt']) &&
              data.healthId is string && data.healthId.size() > 0 &&
              data.name is string && data.name.size() > 0 &&
-             data.age is int &&
+             data.age is number &&
              data.gender in ['Male', 'Female', 'Other'] &&
              data.doctorId is string &&
              data.enrolledAt is string;
@@ -46,7 +46,7 @@ service cloud.firestore {
       allow read: if true; // For dashboard view
       allow create: if isValidPatient(request.resource.data);
       allow update: if isValidPatient(request.resource.data) && 
-                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'age', 'gender', 'doctorId']));
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['healthId', 'name', 'age', 'gender', 'doctorId', 'requestedTreatment', 'medicalHistory', 'status', 'enrolledAt']));
       allow delete: if false;
     }
   }

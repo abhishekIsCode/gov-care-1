@@ -7,26 +7,33 @@ import { Users, User, Stethoscope, Search, Scan, Plus, Loader2, ChevronRight, Ac
 import { motion, AnimatePresence } from 'motion/react';
 import AIVisionScanner from './AIVisionScanner';
 import PatientEnrollment from './PatientEnrollment';
+import PatientIdBadge from './PatientIdBadge';
 
 interface PatientCardProps {
   key?: React.Key;
   patient: Patient;
   doctors: Doctor[];
+  onClick?: () => void;
 }
 
-function PatientRow({ patient, doctors }: PatientCardProps) {
+function PatientRow({ patient, doctors, onClick }: PatientCardProps) {
   const doctor = doctors.find(d => d.id === patient.doctorId);
   
   return (
-    <div className="grid grid-cols-4 px-8 py-6 border-b border-[#f2f2ee] hover:bg-[#fafafa] transition-colors group">
-      <div className="flex flex-col">
-        <span className="font-bold text-sm tracking-tight text-black flex items-center gap-2">
-          {patient.name}
-        </span>
-        <span className="font-mono text-[9px] text-[#88887e] mt-1 uppercase tracking-widest">{patient.healthId}</span>
+    <div 
+      onClick={onClick}
+      className={`grid grid-cols-5 px-8 py-6 border-b border-[#f2f2ee] hover:bg-[#fafafa] transition-colors group gap-4 ${onClick ? 'cursor-pointer' : ''}`}
+    >
+      <div className="flex items-center">
+        <span className="font-mono text-[10px] text-[#88887e] font-bold uppercase tracking-widest bg-[#f2f2ee] px-2 py-1 rounded">{patient.healthId}</span>
       </div>
       <div className="flex items-center">
-        <span className="text-xs font-medium text-[#66665e] italic font-serif leading-none">{patient.requestedTreatment || 'General Checkup'}</span>
+        <span className="font-bold text-sm tracking-tight text-black truncate">
+          {patient.name}
+        </span>
+      </div>
+      <div className="flex items-center pr-4">
+        <span className="text-xs font-medium text-[#66665e] italic font-serif leading-tight line-clamp-2">{patient.requestedTreatment || 'General Checkup'}</span>
       </div>
       <div className="flex items-center">
         <div className="flex flex-col">
@@ -60,38 +67,119 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTab, setCurrentTab] = useState<'monitor' | 'admit' | 'patients'>('monitor');
   const [manualHealthId, setManualHealthId] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+
+  const uniquePatients = React.useMemo(() => {
+    return Array.from(new Map(patients.map(p => [p.healthId, p])).values());
+  }, [patients]);
+  
+  const displayPatients = uniquePatients.slice(0, 3);
 
   useEffect(() => {
     const unsubDoctors = onSnapshot(collection(db, 'doctors'), (snapshot) => {
       const docList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
       setDoctors(docList);
-      
-      // Auto-seed if empty
-      if (snapshot.empty && !isLoading) {
-        const seed = async () => {
-          const sampleDoctors = [
-            { name: "DR. SARAH CHEN", specialty: "CARDIOLOGY", email: "sarah.chen@healink.sys" },
-            { name: "DR. JAMES WILSON", specialty: "NEUROLOGY", email: "james.wilson@healink.sys" },
-            { name: "DR. ELENA RODRIGUEZ", specialty: "PEDIATRICS", email: "elena.r@healink.sys" },
-            { name: "DR. MICHAEL PARK", specialty: "ONCOLOGY", email: "m.park@healink.sys" },
-          ];
-          for (const d of sampleDoctors) {
-            await addDoc(collection(db, 'doctors'), d);
-          }
-        };
-        seed();
-      }
     });
     const unsubPatients = onSnapshot(collection(db, 'patients'), (snapshot) => {
-      setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)));
+      const patList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+      const uniquePatients = Array.from(new Map(patList.map(p => [p.healthId, p])).values());
+      setPatients(uniquePatients);
       setIsLoading(false);
     });
     return () => { unsubDoctors(); unsubPatients(); };
-  }, [isLoading]);
+  }, []);
+
+  // Auto-seeding logic
+  useEffect(() => {
+    if (!isLoading && doctors.length === 0) {
+      const seedDoctors = async () => {
+        const sampleDoctors = [
+          { name: "DR. SARAH CHEN", specialty: "CARDIOLOGY", email: "sarah.chen@govcare.sys" },
+          { name: "DR. JAMES WILSON", specialty: "NEUROLOGY", email: "james.wilson@govcare.sys" },
+          { name: "DR. ELENA RODRIGUEZ", specialty: "PEDIATRICS", email: "elena.r@govcare.sys" },
+          { name: "DR. MICHAEL PARK", specialty: "ONCOLOGY", email: "m.park@govcare.sys" },
+        ];
+        for (const d of sampleDoctors) {
+          await addDoc(collection(db, 'doctors'), d);
+        }
+      };
+      seedDoctors();
+    }
+  }, [isLoading, doctors.length]);
+
+  useEffect(() => {
+    const syncPatients = async () => {
+      const samplePatients = [
+        { 
+          healthId: "HID-12345", 
+          name: "Abhishek Sharma", 
+          age: 24, 
+          gender: "Male", 
+          requestedTreatment: "Comprehensive annual wellness examination. Patient is requesting a consultation regarding an updated allergy management plan, including potential testing for specific respiratory allergens and prescription-strength antihistamine or nasal corticosteroid recommendations.", 
+          medicalHistory: "Patient has no history of chronic, severe illnesses. Exhibits mild seasonal allergic rhinitis, specifically sensitive to spring pollen, resulting in nasal congestion, sneezing, and ocular pruritus. No history of asthma, diabetes, or hypertension. Previous surgical history is nil. Current medications: over-the-counter antihistamines as needed during spring.",
+          doctorId: doctors[0]?.id, 
+          status: "Admitted", 
+          enrolledAt: new Date().toISOString() 
+        },
+        { 
+          healthId: "HID-67890", 
+          name: "Meera Reddy", 
+          age: 52, 
+          gender: "Female", 
+          requestedTreatment: "Detailed orthopedic consultation for intractable knee pain. Seeking evaluation for potential intra-articular corticosteroid injections or consideration for physical therapy referrals, alongside medication management review.", 
+          medicalHistory: "Bilateral knee osteoarthritis, diagnosed 5 years ago, progressively worsening. Essential hypertension well-controlled for 10 years. Borderline hyperlipidemia managed through diet. Previous surgeries: Cholecystectomy (2012). Current medications: Lisinopril 10mg QD, Ibuprofen 400mg PRN for joint pain, Glucosamine Chondroitin supplements.",
+          doctorId: doctors[1]?.id, 
+          status: "Admitted", 
+          enrolledAt: new Date().toISOString() 
+        },
+        { 
+          healthId: "HID-VJ221", 
+          name: "Vikram Joshi", 
+          age: 36, 
+          gender: "Male", 
+          requestedTreatment: "Comprehensive executive health evaluation including standard laboratory panels (CBC, CMP, Lipid panel). Requesting an updated vision screening post-LASIK and a brief consultation on ergonomic practices and stress-related tension headache management.", 
+          medicalHistory: "Generally healthy male with no known chronic medical conditions such as diabetes, hypertension, or cardiac issues. Underwent bilateral LASIK refractive eye surgery in 2019 without complications. Reports occasional work-related stress and subsequent tension headaches. No historical surgeries other than LASIK. Non-smoker.",
+          doctorId: doctors[3]?.id, 
+          status: "Pending", 
+          enrolledAt: new Date().toISOString() 
+        }
+        ];
+
+      // Update existing patients or add if missing
+      for (const p of samplePatients) {
+        const existing = patients.find(ep => ep.healthId === p.healthId);
+        if (existing) {
+          // If name doesn't match our updated comprehensive data, update the doc
+          if (existing.name !== p.name || existing.medicalHistory !== p.medicalHistory) {
+            try {
+              const { setDoc, doc } = await import('firebase/firestore');
+              await setDoc(doc(db, 'patients', existing.id), {
+                ...existing, // keep any other fields
+                ...p, // overwrite with p which has all required fields
+              });
+            } catch (err) {
+              handleFirestoreError(err, OperationType.UPDATE, 'patients');
+            }
+          }
+        } else if (doctors.length >= 4) {
+          try {
+             const { addDoc, collection } = await import('firebase/firestore');
+             await addDoc(collection(db, 'patients'), p);
+          } catch (err) {
+             handleFirestoreError(err, OperationType.CREATE, 'patients');
+          }
+        }
+      }
+    };
+    
+    if (!isLoading && doctors.length >= 4) {
+      syncPatients();
+    }
+  }, [isLoading, patients, doctors]);
 
   const stats = [
-    { label: 'Active Admissions', value: patients.filter(p => p.status === 'Admitted').length, icon: Activity },
-    { label: 'Pending Triage', value: patients.filter(p => !p.doctorId || p.status === 'Pending').length, icon: Clock },
+    { label: 'Active Admissions', value: displayPatients.filter(p => p.status === 'Admitted').length, icon: Activity },
+    { label: 'Pending Triage', value: displayPatients.filter(p => !p.doctorId || p.status === 'Pending').length, icon: Clock },
     { label: 'Available Doctors', value: doctors.length, icon: User },
   ];
 
@@ -111,8 +199,11 @@ export default function AdminDashboard() {
       {/* Sidebar */}
       <aside className="w-72 bg-[#dfdfd9] border-r border-[#cbcbb5] flex flex-col relative z-20">
         <div className="p-10 mb-8">
-          <h1 className="font-serif italic text-4xl font-bold tracking-tighter text-black">HealLink.</h1>
-          <p className="font-mono text-[9px] tracking-[0.3em] font-bold text-[#b5b5ad] mt-2 italic">SYSTEM V1.0.4</p>
+          <div className="flex items-center gap-3">
+            <Activity className="text-[#2dd4bf]" size={38} strokeWidth={2.5} />
+            <h1 className="font-serif text-4xl font-medium tracking-tight text-[#333333] leading-none" style={{ fontFamily: 'Georgia, serif' }}>GovCare</h1>
+          </div>
+          <p className="font-mono text-[10px] tracking-[0.4em] font-medium text-[#a3a3a3] mt-2">123456</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
@@ -283,18 +374,18 @@ export default function AdminDashboard() {
               </div>
 
               <div className="bg-white border-2 border-black brutalist-shadow overflow-hidden">
-                <div className="grid grid-cols-4 bg-white border-b border-[#cbcbb5] px-8 py-4">
-                  {['PATIENT.IDENTITY', 'REQUESTED.TREATMENT', 'ASSIGNED.SPECIALIST', 'SYSTEM.STATUS'].map((label) => (
+                <div className="grid grid-cols-5 gap-4 bg-white border-b border-[#cbcbb5] px-8 py-4">
+                  {['HEALTH.ID', 'PATIENT.NAME', 'REQUESTED.TREATMENT', 'ASSIGNED.SPECIALIST', 'SYSTEM.STATUS'].map((label) => (
                     <span key={label} className="font-serif italic text-[10px] text-[#cbcbb5] tracking-[0.1em]">{label}</span>
                   ))}
                 </div>
 
                 <div className="min-h-[400px] flex flex-col bg-white">
-                  {patients.length > 0 ? (
-                    patients
+                  {displayPatients.length > 0 ? (
+                    displayPatients
                       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.healthId.toLowerCase().includes(searchTerm.toLowerCase()))
                       .map((patient) => (
-                        <PatientRow key={patient.id} patient={patient} doctors={doctors} />
+                        <PatientRow key={patient.id} patient={patient} doctors={doctors} onClick={() => setSelectedPatient(patient)} />
                       ))
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center py-40 opacity-30 italic font-serif text-3xl text-[#cbcbb5] px-8 text-center bg-white">
@@ -312,20 +403,20 @@ export default function AdminDashboard() {
             >
               <div className="mb-8 border-b border-[#cbcbb5] pb-4">
                 <h2 className="font-serif italic text-4xl text-black">Registered Patients</h2>
-                <p className="font-mono text-[10px] font-bold tracking-[0.2em] text-[#88887e] mt-2">TOTAL ARCHIVE: {patients.length} RECORDS</p>
+                <p className="font-mono text-[10px] font-bold tracking-[0.2em] text-[#88887e] mt-2">TOTAL ARCHIVE: {displayPatients.length} RECORDS</p>
               </div>
 
               <div className="bg-white border-2 border-black brutalist-shadow overflow-hidden">
-                <div className="grid grid-cols-4 bg-white border-b border-[#cbcbb5] px-8 py-4">
-                  {['PATIENT.IDENTITY', 'REQUESTED.TREATMENT', 'ASSIGNED.SPECIALIST', 'SYSTEM.STATUS'].map((label) => (
+                <div className="grid grid-cols-5 gap-4 bg-white border-b border-[#cbcbb5] px-8 py-4">
+                  {['HEALTH.ID', 'PATIENT.NAME', 'REQUESTED.TREATMENT', 'ASSIGNED.SPECIALIST', 'SYSTEM.STATUS'].map((label) => (
                     <span key={label} className="font-serif italic text-[10px] text-[#cbcbb5] tracking-[0.1em]">{label}</span>
                   ))}
                 </div>
                 <div className="flex flex-col">
-                  {patients.map((patient) => (
-                    <PatientRow key={patient.id} patient={patient} doctors={doctors} />
+                  {displayPatients.map((patient) => (
+                    <PatientRow key={patient.id} patient={patient} doctors={doctors} onClick={() => setSelectedPatient(patient)} />
                   ))}
-                  {patients.length === 0 && (
+                  {displayPatients.length === 0 && (
                     <div className="py-20 text-center italic font-serif text-2xl text-[#cbcbb5]">Archive empty.</div>
                   )}
                 </div>
@@ -343,6 +434,13 @@ export default function AdminDashboard() {
               setIsScannerOpen(false);
             }} 
             onClose={() => setIsScannerOpen(false)} 
+          />
+        )}
+        
+        {selectedPatient && (
+          <PatientIdBadge
+            patient={selectedPatient}
+            onClose={() => setSelectedPatient(null)}
           />
         )}
       </AnimatePresence>
